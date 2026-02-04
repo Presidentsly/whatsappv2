@@ -11,3 +11,6 @@ Thumbs.db
 # Temp / cache
 tmp/
 *.tmp
+
+# session mappa **NE legyen ideírva**
+# session/
