@@ -7,52 +7,87 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Statikus fájlok a public mappából
 app.use(express.static("public"));
 
+// =========================
+// WHATSAPP CLIENT
+// =========================
 const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: "./session" }), // ← itt tárolja a sessiont
+    authStrategy: new LocalAuth({ dataPath: "./session/session" }), // <-- gitben lévő mappa
     puppeteer: {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"]
     }
 });
 
-let chats = {}; // ha szeretnél több chatet, ide lehet menteni
-
-// QR kód küldése a frontendnek
-client.on("qr", qr => {
-    io.emit("qr", qr);
-});
-
-// Ready
-client.on("ready", () => {
-    io.emit("ready");
-});
-
-// Bejövő üzenetek
-client.on("message", async msg => {
-    let mediaUrl = null;
-
-    if(msg.hasMedia){
-        const media = await msg.downloadMedia();
-        mediaUrl = `data:${media.mimetype};base64,${media.data}`;
-    }
-
-    io.emit("message", {
-        from: msg.from.replace("@c.us",""),
-        body: msg.body,
-        media: mediaUrl
-    });
-});
-
-// Frontend → WhatsApp
+// =========================
+// SOCKET.IO & ÜZENETEK
+// =========================
 io.on("connection", socket => {
-    socket.on("sendMessage", async ({to, text}) => {
-        await client.sendMessage(to, text);
+    console.log("🌐 Web kliens csatlakozott");
+
+    // QR kód küldése a frontendnek (csak ha nincs session)
+    client.on("qr", qr => {
+        console.log("📱 QR generálva");
+        io.emit("qr", qr);
+    });
+
+    // Ready event
+    client.on("ready", () => {
+        console.log("✅ WhatsApp csatlakozott");
+        io.emit("ready");
+    });
+
+    // Auth hiba
+    client.on("auth_failure", msg => {
+        console.log("❌ Auth hiba:", msg);
+    });
+
+    // Disconnect
+    client.on("disconnected", reason => {
+        console.log("⚠️ WA disconnected:", reason);
+    });
+
+    // Bejövő üzenetek (szöveg + képek/GIF)
+    client.on("message", async msg => {
+        let mediaUrl = null;
+
+        if (msg.hasMedia) {
+            try {
+                const media = await msg.downloadMedia();
+                if (media && (media.mimetype.startsWith("image") || media.mimetype === "image/gif")) {
+                    mediaUrl = `data:${media.mimetype};base64,${media.data}`;
+                }
+            } catch (e) {
+                console.log("Media hiba:", e.message);
+            }
+        }
+
+        io.emit("message", {
+            from: msg.from.replace("@c.us", ""),
+            body: msg.body,
+            media: mediaUrl,
+            t: Date.now()
+        });
+    });
+
+    // Frontend → WhatsApp üzenetküldés
+    socket.on("sendMessage", async ({ to, text }) => {
+        try {
+            await client.sendMessage(to, text);
+        } catch (err) {
+            console.log("Send hiba:", err.message);
+        }
     });
 });
 
+// =========================
+// START SERVER
+// =========================
 client.initialize();
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on port", PORT));
+server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+});
