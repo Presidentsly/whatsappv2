@@ -1,7 +1,7 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { Client, MessageMedia } = require("whatsapp-web.js");
+const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -10,6 +10,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: "./session" }), // ← itt tárolja a sessiont
     puppeteer: {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"]
@@ -23,6 +24,7 @@ client.on("qr", qr => {
     io.emit("qr", qr);
 });
 
+// Ready
 client.on("ready", () => {
     io.emit("ready");
 });
@@ -45,11 +47,9 @@ client.on("message", async msg => {
 
 // Frontend → WhatsApp
 io.on("connection", socket => {
-
     socket.on("sendMessage", async ({to, text}) => {
         await client.sendMessage(to, text);
     });
-
 });
 
 client.initialize();
