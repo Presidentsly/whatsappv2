@@ -1,9 +1,6 @@
 # Node.js dependencies
 node_modules/
 
-# WhatsApp session (LocalAuth)
-session/
-
 # Logok
 *.log
 
