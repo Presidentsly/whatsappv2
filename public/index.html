@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mini WhatsApp</title>
+    <style>
+        body { font-family:sans-serif; max-width:800px; margin:auto; }
+        #messages { max-height:600px; overflow-y:auto; border:1px solid #ccc; padding:10px; margin-bottom:10px; }
+        .msg { border-bottom:1px solid #ddd; padding:5px; }
+        img, video { max-width:300px; display:block; margin-top:5px; }
+    </style>
+</head>
+<body>
+
+<h2>Mini WhatsApp</h2>
+
+<div id="qr"></div>
+<div id="messages"></div>
+
+<input id="to" placeholder="Címzett (pl. 3630xxxxxxx)" style="width:200px"/>
+<input id="msg" placeholder="Írj üzenetet..." style="width:300px"/>
+<button onclick="send()">Küldés</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+const messagesDiv = document.getElementById("messages");
+const qrDiv = document.getElementById("qr");
+
+socket.on("qr", qr => {
+    qrDiv.innerHTML = "<img src='https://api.qrserver.com/v1/create-qr-code/?data=" + qr + "&size=200x200' />";
+});
+
+socket.on("ready", () => {
+    qrDiv.innerHTML = "<b>Bejelentkezve!</b>";
+});
+
+socket.on("message", msg => {
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.innerHTML = `<b>${msg.from}:</b> ${msg.body}`;
+
+    if(msg.media){
+        if(msg.media.startsWith("data:image")){
+            const img = document.createElement("img");
+            img.src = msg.media;
+            div.appendChild(img);
+        } else if(msg.media.startsWith("data:video")){
+            const vid = document.createElement("video");
+            vid.src = msg.media;
+            vid.controls = true;
+            div.appendChild(vid);
+        }
+    }
+
+    messagesDiv.prepend(div);
+});
+
+function send(){
+    const to = document.getElementById("to").value + "@c.us";
+    const text = document.getElementById("msg").value;
+    socket.emit("sendMessage",{to,text});
+    document.getElementById("msg").value = "";
+}
+</script>
+
+</body>
+</html>

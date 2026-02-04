@@ -1,0 +1,16 @@
+# Node.js dependencies
+node_modules/
+
+# WhatsApp session (LocalAuth)
+session/
+
+# Logok
+*.log
+
+# OS fájlok
+.DS_Store
+Thumbs.db
+
+# Temp / cache
+tmp/
+*.tmp
